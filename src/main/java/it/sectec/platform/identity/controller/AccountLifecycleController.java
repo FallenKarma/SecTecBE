@@ -1,13 +1,19 @@
 package it.sectec.platform.identity.controller;
 
-import it.sectec.platform.identity.service.*;
-import it.sectec.platform.shared.crud.CrudException;
+import it.sectec.platform.identity.service.AccountLifecycleService;
+import it.sectec.platform.identity.service.AccountRateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.util.Map;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -23,7 +29,7 @@ public class AccountLifecycleController {
         service.register(input.email(), input.password(), input.nome(), input.cognome());
         return accepted();
     }
-    @PostMapping("/resend-verification")
+        @PostMapping("/resend-verification")
     public ResponseEntity<Map<String, String>> resend(@Valid @RequestBody EmailInput input, HttpServletRequest request) {
         limiter.check(request.getRemoteAddr());
         service.resendVerification(input.email());

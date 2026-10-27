@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DatabaseUserDetailsService implements UserDetailsService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DatabaseUserDetailsService.class);
     private final UserRepository users;
     private final UserRoleRepository userRoles;
     private final RolePermissionRepository rolePermissions;
@@ -23,7 +24,14 @@ public class DatabaseUserDetailsService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) {
         var user = users.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Credenziali non valide"));
+                .orElseThrow(() -> {
+                    log.debug("Login lookup rejected: account not found");
+                    return new UsernameNotFoundException("Credenziali non valide");
+                });
+        if (!"ACTIVE".equals(user.getStatus())) {
+            log.debug("Login account is not active: pendingVerification={} locked={}",
+                    "PENDING_VERIFICATION".equals(user.getStatus()), "LOCKED".equals(user.getStatus()));
+        }
         var roles = new TreeSet<String>();
         var permissions = new TreeSet<String>();
         for (var assignment : userRoles.findByUser_Id(user.getId())) {

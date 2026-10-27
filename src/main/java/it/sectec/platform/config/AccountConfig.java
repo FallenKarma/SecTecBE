@@ -17,6 +17,18 @@ public class AccountConfig {
         executor.setMaxPoolSize(2);
         executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("account-mail-");
+        executor.setTaskDecorator(task -> {
+            var context = org.slf4j.MDC.getCopyOfContextMap();
+            return () -> {
+                var previous = org.slf4j.MDC.getCopyOfContextMap();
+                try {
+                    if (context == null) org.slf4j.MDC.clear(); else org.slf4j.MDC.setContextMap(context);
+                    task.run();
+                } finally {
+                    if (previous == null) org.slf4j.MDC.clear(); else org.slf4j.MDC.setContextMap(previous);
+                }
+            };
+        });
         executor.initialize();
         return executor;
     }

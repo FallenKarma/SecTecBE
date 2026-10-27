@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class AccountLifecycleService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AccountLifecycleService.class);
     private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final PasswordEncoder encoder;
@@ -36,6 +37,7 @@ public class AccountLifecycleService {
     }
 
     public void register(String email, String password, String nome, String cognome) {
+        log.debug("Registration started");
         String hash = encode(password); // Always perform hashing, including existing accounts.
         String normalized = normalize(email);
         UUID id = UUID.randomUUID();
@@ -43,23 +45,32 @@ public class AccountLifecycleService {
                 insert into app_user(id,email,hashed_password,status,nome,cognome)
                 values (?,?,?,'PENDING_VERIFICATION',?,?) on conflict do nothing
                 """, id, normalized, hash, nome.trim(), cognome.trim());
-        if (inserted == 1) issue(users.findLockedById(id).orElseThrow(), "VERIFY_EMAIL", verificationTtl);
+        if (inserted == 1) {
+            issue(users.findLockedById(id).orElseThrow(), "VERIFY_EMAIL", verificationTtl);
+            it.sectec.platform.shared.TransactionLog.committed(log, "Registration committed: status=PENDING_VERIFICATION; email verification required before login");
+        } else {
+            log.debug("Registration skipped: account already exists; credentials unchanged and no email queued");
+        }
         // Existing accounts are neither modified nor disclosed.
     }
 
     public void resendVerification(String email) {
-        users.findLockedByEmail(normalize(email)).ifPresent(user -> {
+        log.debug("Verification resend requested");
+        users.findLockedByEmail(normalize(email)).ifPresentOrElse(user -> {
             if (user.getEmailVerifiedAt() == null &&
                     ("PENDING_VERIFICATION".equals(user.getStatus()) || "ACTIVE".equals(user.getStatus())))
                 issue(user, "VERIFY_EMAIL", verificationTtl);
-        });
+            else log.debug("Verification resend skipped: account already verified or status not eligible");
+        }, () -> log.debug("Verification resend skipped: account not found"));
     }
 
     public void forgotPassword(String email) {
-        users.findLockedByEmail(normalize(email)).ifPresent(user -> {
+        log.debug("Password recovery requested");
+        users.findLockedByEmail(normalize(email)).ifPresentOrElse(user -> {
             if ("ACTIVE".equals(user.getStatus()) && user.getEmailVerifiedAt() != null)
                 issue(user, "RESET_PASSWORD", resetTtl);
-        });
+            else log.debug("Password recovery skipped: account must be active with verified email");
+        }, () -> log.debug("Password recovery skipped: account not found"));
     }
 
     public void verifyEmail(String token) {
@@ -68,6 +79,7 @@ public class AccountLifecycleService {
                 !Set.of("ACTIVE", "PENDING_VERIFICATION").contains(user.getStatus())) invalid();
         user.setEmailVerifiedAt(clock.instant());
         if ("PENDING_VERIFICATION".equals(user.getStatus())) user.setStatus("ACTIVE");
+        it.sectec.platform.shared.TransactionLog.committed(log, "Email verification committed: account ACTIVE");
     }
 
     public void resetPassword(String token, String password) {
@@ -78,6 +90,7 @@ public class AccountLifecycleService {
         user.invalidateCredentials();
         jdbc.update("update account_token set consumed_at = ? where user_id = ? and consumed_at is null",
                 Timestamp.from(clock.instant()), user.getId());
+        it.sectec.platform.shared.TransactionLog.committed(log, "Password reset committed; previous sessions and outstanding tokens revoked");
     }
 
     private void issue(User user, String purpose, Duration ttl) {
@@ -85,7 +98,10 @@ public class AccountLifecycleService {
         Integer recent = jdbc.queryForObject("""
                 select count(*) from account_token where user_id = ? and purpose = ? and created_at > ?
                 """, Integer.class, user.getId(), purpose, Timestamp.from(now.minusSeconds(60)));
-        if (recent != null && recent > 0) return;
+        if (recent != null && recent > 0) {
+            log.debug("Account email suppressed by 60-second cooldown: purpose={}", purpose);
+            return;
+        }
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -97,14 +113,21 @@ public class AccountLifecycleService {
                 """, UUID.randomUUID(), user.getId(), digest(token), purpose, user.getEmail(),
                 user.getCredentialsVersion(), Timestamp.from(now), Timestamp.from(now.plus(ttl)));
         events.publishEvent(new AccountMail(user.getEmail(), purpose, token));
+        log.debug("Account token prepared: purpose={} ttl={}; email scheduled after commit", purpose, ttl);
     }
 
     private User consume(String token, String purpose) {
-        if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) return invalid();
+        if (token == null || !token.matches("[A-Za-z0-9_-]{43}")) {
+            log.debug("Account token rejected: invalid format; purpose={}", purpose);
+            return invalid();
+        }
         String hash = digest(token);
         List<UUID> ids = jdbc.query("select user_id from account_token where token_hash = ? and purpose = ?",
                 (rs, n) -> rs.getObject(1, UUID.class), hash, purpose);
-        if (ids.isEmpty()) return invalid();
+        if (ids.isEmpty()) {
+            log.debug("Account token rejected: no match for purpose={}", purpose);
+            return invalid();
+        }
         // Every issue/consume operation locks the user first, serializing concurrent redemptions.
         var user = users.findLockedById(ids.getFirst()).orElseThrow(() -> new CrudException(400, "INVALID_TOKEN"));
         int updated = jdbc.update("""
@@ -113,7 +136,10 @@ public class AccountLifecycleService {
                 and email = ? and credentials_version = ?
                 """, Timestamp.from(clock.instant()), hash, purpose, Timestamp.from(clock.instant()),
                 user.getEmail(), user.getCredentialsVersion());
-        if (updated != 1) return invalid();
+        if (updated != 1) {
+            log.debug("Account token rejected: expired, consumed or account credentials changed; purpose={}", purpose);
+            return invalid();
+        }
         return user;
     }
 

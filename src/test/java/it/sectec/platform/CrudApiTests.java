@@ -45,6 +45,84 @@ class CrudApiTests {
 
     record Fixture(String entity, String path, Map<String, Object> body) {}
 
+    private UUID cliente(String nome, String cognome, String codiceFiscale) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("insert into cliente(id,nome,cognome,codice_fiscale) values (?,?,?,?)",
+                id, nome, cognome, codiceFiscale);
+        return id;
+    }
+
+    @Test
+    void clientsCanBeSearchedByCombinedNamesAndExactTaxCode() throws Exception {
+        UUID mario = cliente("Mario", "Rossi", "RSSMRA80A01H501U");
+        cliente("Maria", "Verdi", "VRDMRA80A01H501U");
+        cliente("Luca", "Rossi", null);
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("nome", " ARI ")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("cognome", "oss")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("nome", " MAR ").param("cognome", " ROS ")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(mario.toString()));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("codiceFiscale", " rssmra80a01h501u ")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(mario.toString()))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("nome", "mario")
+                .param("cognome", "rossi").param("codiceFiscale", "RSSMRA80A01H501U")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("nome", "luca")
+                .param("codiceFiscale", "RSSMRA80A01H501U")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("codiceFiscale", "RSS")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void clientSearchHandlesLiteralWildcardsBlankFiltersAndStablePagination() throws Exception {
+        UUID literal = cliente("Special%_!", "Test", null);
+        cliente("SpecialABC", "Test", null);
+        cliente("Other", "Test", null);
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("nome", "%_!")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(literal.toString()));
+        var unfiltered = mvc.perform(authorized(get("/api/v1/clienti").param("size", "2").param("page", "1")))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("nome", " ").param("cognome", "")
+                .param("codiceFiscale", " ").param("size", "2").param("page", "1")))
+                .andExpect(status().isOk()).andExpect(content().json(unfiltered));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("nome", "Special").param("size", "1")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2)).andExpect(jsonPath("$.totalPages").value(2));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("page", "99")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    void clientSearchRequiresReadPermissionAndValidFiltersAndPagination() throws Exception {
+        mvc.perform(get("/api/v1/clienti/search").param("nome", "Mario"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/clienti/search").with(user("writer")
+                .authorities(new SimpleGrantedAuthority("PERM_CLIENTE_WRITE"))))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/clienti/search").with(user("reader")
+                .authorities(new SimpleGrantedAuthority("PERM_CLIENTE_READ"))))
+                .andExpect(status().isOk());
+        for (String field : List.of("nome", "cognome", "codiceFiscale")) {
+            mvc.perform(authorized(get("/api/v1/clienti/search").param(field, "x".repeat(101))))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        }
+        for (String size : List.of("0", "101")) {
+            mvc.perform(authorized(get("/api/v1/clienti/search").param("size", size)))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
+        }
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("page", "-1")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
+        mvc.perform(authorized(get("/api/v1/clienti/search").param("page", "abc")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
     @Test
     void allTwentyThreeResourcesSupportCrudWithIdsInsteadOfNestedEntities() throws Exception {
         Fixture[] fixtures;

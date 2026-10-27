@@ -3,6 +3,12 @@
 Backend Spring Boot della piattaforma. Java 25, Spring Boot 4.1.2, Maven 3.10.0
 tramite Wrapper e PostgreSQL 17.11. Packaging JAR.
 
+Per livelli di log, correlazione delle richieste e diagnosi di login/SMTP,
+vedere [Log applicativi](docs/logging.md).
+
+La [ricerca filtrata dei clienti](docs/client-search.md) permette di combinare
+nome, cognome e codice fiscale con paginazione.
+
 ## Prerequisiti
 
 - JDK 25 selezionato tramite `JAVA_HOME` e `PATH`.
@@ -11,7 +17,7 @@ tramite Wrapper e PostgreSQL 17.11. Packaging JAR.
 
 ## Avvio locale (PowerShell)
 
-Dalla cartella `piattaforma-api`:
+Dalla cartella `SecTecBE`:
 
 ```powershell
 # Percorso presente su questo laptop; adattarlo alle altre macchine.
@@ -107,12 +113,12 @@ Sono disponibili anche [registrazione, verifica email e reset password](docs/acc
 tramite API JSON e Mailpit per leggere le email di sviluppo. Le schermate appartengono
 a `piattaforma-web`; i link email puntano al frontend configurato con `FRONTEND_BASE_URL`.
 
-| Metodo | Endpoint | Risposta |
-| --- | --- | --- |
-| GET | `/api/v1/auth/csrf` | 200 con `headerName` e `token`; crea una sessione anonima se necessario |
-| POST | `/api/v1/auth/login` | JSON con `email` e `password`; 200 con il profilo dopo autenticazione |
-| GET | `/api/v1/auth/me` | 200 con `id`, `email`, `nome`, `cognome`, `roles`, `permissions` |
-| POST | `/api/v1/auth/logout` | 204; invalida la sessione e cancella il cookie |
+| Metodo | Endpoint              | Risposta                                                                |
+| ------ | --------------------- | ----------------------------------------------------------------------- |
+| GET    | `/api/v1/auth/csrf`   | 200 con `headerName` e `token`; crea una sessione anonima se necessario |
+| POST   | `/api/v1/auth/login`  | JSON con `email` e `password`; 200 con il profilo dopo autenticazione   |
+| GET    | `/api/v1/auth/me`     | 200 con `id`, `email`, `nome`, `cognome`, `roles`, `permissions`        |
+| POST   | `/api/v1/auth/logout` | 204; invalida la sessione e cancella il cookie                          |
 
 Login e logout richiedono il token CSRF nell'header restituito da `/csrf`
 (`X-CSRF-TOKEN`). La risposta del login non include password o hash.
@@ -136,15 +142,20 @@ non configura il container Nginx della demo statica. Non è abilitato CORS cross
 Esempio da React (nessuna credenziale in localStorage):
 
 ```typescript
-const csrf = await fetch('/api/v1/auth/csrf').then(r => r.json());
-const response = await fetch('/api/v1/auth/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
+const csrf = await fetch("/api/v1/auth/csrf").then((r) => r.json());
+const response = await fetch("/api/v1/auth/login", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    [csrf.headerName]: csrf.token,
+  },
   body: JSON.stringify({ email, password }),
 });
-if (!response.ok) throw new Error('Accesso non riuscito');
+if (!response.ok) throw new Error("Accesso non riuscito");
 const profile = await response.json();
-const authenticatedCsrf = await fetch('/api/v1/auth/csrf').then(r => r.json());
+const authenticatedCsrf = await fetch("/api/v1/auth/csrf").then((r) =>
+  r.json(),
+);
 // Usare authenticatedCsrf per le successive richieste di modifica e logout.
 ```
 

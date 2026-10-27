@@ -16,8 +16,11 @@ public class AccountRateLimiter {
         long now = clock.millis();
         windows.entrySet().removeIf(entry -> now - entry.getValue().start() >= 60_000);
         var window = windows.get(address);
-        if ((window != null && window.count() >= 10) || (window == null && windows.size() >= 10_000))
+        if ((window != null && window.count() >= 10) || (window == null && windows.size() >= 10_000)) {
+            org.slf4j.LoggerFactory.getLogger(AccountRateLimiter.class).warn("Account request rate limited: reason={}",
+                    window != null ? "IP_WINDOW_EXHAUSTED" : "LIMITER_CAPACITY_REACHED");
             throw new CrudException(429, "TOO_MANY_REQUESTS");
+        }
         windows.put(address, window == null ? new Window(now, 1) : new Window(window.start(), window.count() + 1));
     }
 }

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthController.class);
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository contexts;
     private final SessionAuthenticationStrategy sessions;
@@ -46,6 +47,7 @@ public class AuthController {
         SecurityContextHolder.setContext(empty);
         contexts.saveContext(empty, request, response);
         try {
+            log.debug("Login authentication started");
             var authentication = authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(input.email(), input.password()));
             sessions.onAuthentication(authentication, request, response);
@@ -53,8 +55,10 @@ public class AuthController {
             context.setAuthentication(authentication);
             SecurityContextHolder.setContext(context);
             contexts.saveContext(context, request, response);
+            log.info("Login succeeded; authenticated session established");
             return ResponseEntity.ok(((AccountPrincipal) authentication.getPrincipal()).profile());
         } catch (AuthenticationException ex) {
+            log.warn("Login rejected: reason={}", ex.getClass().getSimpleName());
             SecurityContextHolder.clearContext();
             ApiSecurityError.write(response, 401, "INVALID_CREDENTIALS");
             return null;

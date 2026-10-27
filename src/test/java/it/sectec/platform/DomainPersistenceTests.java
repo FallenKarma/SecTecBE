@@ -38,6 +38,42 @@ class DomainPersistenceTests {
     @Autowired EntityManager em;
     @Autowired JdbcTemplate jdbc;
 
+    @Test
+    void standardRolesGrantAgreedPermissionsAndSeedsAreIdempotent() throws Exception {
+        assertThat(jdbc.queryForList("select name from role where name in ('Admin','Tecnico','Cliente')", String.class))
+                .containsExactlyInAnyOrder("Admin", "Tecnico", "Cliente");
+        assertThat(jdbc.queryForList("""
+                select p.name from role_permission rp join role r on r.id=rp.id_role
+                join permission p on p.id=rp.id_permission where r.name='Tecnico'
+                """, String.class)).containsExactlyInAnyOrder(
+                        "CLIENTE_READ", "CLIENTE_WRITE", "IMPIANTO_READ", "IMPIANTO_WRITE",
+                        "INTERVENTO_READ", "INTERVENTO_WRITE", "ASSISTENZA_READ", "ASSISTENZA_WRITE");
+        assertThat(jdbc.queryForList("""
+                select p.name from role_permission rp join role r on r.id=rp.id_role
+                join permission p on p.id=rp.id_permission where r.name='Admin'
+                """, String.class)).containsExactlyInAnyOrderElementsOf(
+                        jdbc.queryForList("select name from permission", String.class));
+        assertThat(jdbc.queryForList("""
+                select p.name from role_permission rp join role r on r.id=rp.id_role
+                join permission p on p.id=rp.id_permission where r.name='Cliente'
+                """, String.class)).containsExactlyInAnyOrder(
+                        "CATEGORIA_READ", "TIPO_ARTICOLO_READ", "IMMAGINE_ARTICOLO_READ",
+                        "TIPO_INTERVENTO_READ", "TIPO_IMPIANTO_READ", "TIPO_ASSISTENZA_READ");
+        assertThat(jdbc.queryForList("""
+                select name from permission where name in
+                ('BOLLA_READ','BOLLA_WRITE','BOLLA_TIPO_ARTICOLO_READ','BOLLA_TIPO_ARTICOLO_WRITE')
+                """, String.class)).hasSize(4);
+        var before = jdbc.queryForList("select id, id_role, id_permission from role_permission order by id");
+        for (String file : java.util.List.of("V6__ensure_delivery_permissions.sql", "V7__seed_standard_roles.sql",
+                "V8__grant_admin_and_customer_permissions.sql")) {
+            var resource = new org.springframework.core.io.ClassPathResource("db/migration/" + file);
+            jdbc.execute(resource.getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        assertThat(jdbc.queryForList("select id, id_role, id_permission from role_permission order by id"))
+                .isEqualTo(before);
+        assertThat(jdbc.queryForObject("select count(*) from user_role", Integer.class)).isZero();
+    }
+
     private <T> T save(T entity) {
         em.persist(entity);
         return entity;

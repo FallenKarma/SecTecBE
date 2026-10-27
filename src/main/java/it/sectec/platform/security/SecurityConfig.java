@@ -97,7 +97,10 @@ public class SecurityConfig {
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
                         .deleteCookies("JSESSIONID")
-                        .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204)))
+                        .logoutSuccessHandler((request, response, authentication) -> {
+                            org.slf4j.LoggerFactory.getLogger(SecurityConfig.class).info("Logout completed; session invalidated");
+                            response.setStatus(204);
+                        }))
                 .build();
     }
 }

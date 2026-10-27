@@ -20,7 +20,7 @@ public class CorsConfig {
         configuration.validateAllowCredentials();
         configuration.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "Accept", "X-CSRF-TOKEN"));
-        configuration.setExposedHeaders(List.of("Location"));
+        configuration.setExposedHeaders(List.of("Location", "X-Request-ID"));
         configuration.setMaxAge(3600L);
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);

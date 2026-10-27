@@ -11,6 +11,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
 public class AccountMailSender {
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(AccountMailSender.class);
     private final JavaMailSender mail;
     private final String from;
     private final String baseUrl;
@@ -35,11 +36,13 @@ public class AccountMailSender {
                 "/#" + action + "?token=" + event.token() +
                 "\n\nIl link scade ed e' utilizzabile una sola volta. Se non hai richiesto l'operazione, ignora questa email.");
         try {
+            log.debug("Account email delivery started: purpose={}", event.purpose());
             mail.send(message);
+            log.info("Account email accepted by SMTP server: purpose={}", event.purpose());
         } catch (MailException ex) {
             // Never log credentials, token, message body or SMTP exception details.
-            LoggerFactory.getLogger(AccountMailSender.class).error(
-                    "Account email delivery failed; request a new link after SMTP is restored.");
+            log.error("Account email delivery failed: purpose={} exceptionType={}; check SMTP availability/configuration and request a new link after 60 seconds",
+                    event.purpose(), ex.getClass().getSimpleName());
         }
     }
 }

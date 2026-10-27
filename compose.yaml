@@ -1,0 +1,26 @@
+name: sectec-api
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_DB: sectec
+      POSTGRES_USER: sectec
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sectec-local}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sectec -d sectec"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

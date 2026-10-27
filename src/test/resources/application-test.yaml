@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    # Testcontainers supplies the connection through @ServiceConnection.
+    url: jdbc:postgresql://localhost:1/unused
+    username: unused
+    password: unused
+
+management:
+  health:
+    mail:
+      enabled: false

@@ -1,0 +1,237 @@
+[
+  {
+    "entity": "User",
+    "path": "users",
+    "body": {
+      "email": "crud@example.test",
+      "password": "Crud-password-123",
+      "status": "ACTIVE",
+      "emailVerifiedAt": null,
+      "nome": "User-nome",
+      "cognome": "User-cognome"
+    }
+  },
+  {
+    "entity": "Role",
+    "path": "roles",
+    "body": {
+      "name": "Role-name",
+      "description": null
+    }
+  },
+  {
+    "entity": "Permission",
+    "path": "permissions",
+    "body": {
+      "name": "Permission-name",
+      "description": null
+    }
+  },
+  {
+    "entity": "UserRole",
+    "path": "user-roles",
+    "body": {
+      "userId": "$User",
+      "roleId": "$Role",
+      "assignedAt": "2026-10-25T10:00:00Z"
+    }
+  },
+  {
+    "entity": "RolePermission",
+    "path": "role-permissions",
+    "body": {
+      "roleId": "$Role",
+      "permissionId": "$Permission"
+    }
+  },
+  {
+    "entity": "Categoria",
+    "path": "categorie",
+    "body": {
+      "nome": "Categoria-nome",
+      "descrizione": null
+    }
+  },
+  {
+    "entity": "TipoArticolo",
+    "path": "tipi-articolo",
+    "body": {
+      "categoriaId": "$Categoria",
+      "codiceArticolo": "TipoArticolo-codiceArticolo",
+      "descrizione": "TipoArticolo-descrizione",
+      "marca": "TipoArticolo-marca",
+      "modello": "TipoArticolo-modello",
+      "costo": null
+    }
+  },
+  {
+    "entity": "FileAsset",
+    "path": "file-assets",
+    "body": {
+      "storageBackend": "LOCAL",
+      "storageNamespace": "FileAsset-storageNamespace",
+      "storageKey": "FileAsset-storageKey",
+      "originalName": "FileAsset-originalName",
+      "mimeType": "FileAsset-mimeType",
+      "byteSize": 3,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "visibility": "PUBLIC",
+      "createdAt": "2026-10-25T10:00:00Z"
+    }
+  },
+  {
+    "entity": "ImmagineArticolo",
+    "path": "immagini-articolo",
+    "body": {
+      "fileAssetId": "$FileAsset",
+      "altText": "ImmagineArticolo-altText",
+      "sortOrder": 0,
+      "tipoArticoloId": "$TipoArticolo"
+    }
+  },
+  {
+    "entity": "DocumentoArticolo",
+    "path": "documenti-articolo",
+    "body": {
+      "fileAssetId": "$FileAsset",
+      "version": "DocumentoArticolo-version",
+      "tipoArticoloId": "$TipoArticolo"
+    }
+  },
+  {
+    "entity": "TipoIntervento",
+    "path": "tipi-intervento",
+    "body": {
+      "nome": "TipoIntervento-nome"
+    }
+  },
+  {
+    "entity": "TipoImpianto",
+    "path": "tipi-impianto",
+    "body": {
+      "nome": "TipoImpianto-nome"
+    }
+  },
+  {
+    "entity": "TipoAssistenza",
+    "path": "tipi-assistenza",
+    "body": {
+      "nome": "TipoAssistenza-nome"
+    }
+  },
+  {
+    "entity": "Fornitore",
+    "path": "fornitori",
+    "body": {
+      "ragioneSociale": "Fornitore-ragioneSociale",
+      "indirizzo": "Fornitore-indirizzo",
+      "partitaIva": null,
+      "codiceFiscale": null,
+      "telefono": null,
+      "email": null,
+      "iban": null
+    }
+  },
+  {
+    "entity": "Cliente",
+    "path": "clienti",
+    "body": {
+      "userId": "$User",
+      "indirizzo": null,
+      "cap": null,
+      "codiceFiscale": null,
+      "partitaIva": null,
+      "pec": null,
+      "dataNascita": null,
+      "nome": "Cliente-nome",
+      "cognome": "Cliente-cognome",
+      "iban": null,
+      "indirizzoFatturazione": null
+    }
+  },
+  {
+    "entity": "Impianto",
+    "path": "impianti",
+    "body": {
+      "tipoImpiantoId": "$TipoImpianto",
+      "indirizzo": "Impianto-indirizzo",
+      "cap": "Impianto-cap",
+      "nome": "Impianto-nome",
+      "descrizione": null,
+      "numeroSim": null,
+      "codiceSim": null,
+      "longitudine": null,
+      "latitudine": null,
+      "comune": "Impianto-comune"
+    }
+  },
+  {
+    "entity": "ClienteImpianto",
+    "path": "clienti-impianti",
+    "body": {
+      "clienteId": "$Cliente",
+      "impiantoId": "$Impianto"
+    }
+  },
+  {
+    "entity": "Articolo",
+    "path": "articoli",
+    "body": {
+      "tipoArticoloId": "$TipoArticolo",
+      "impiantoId": "$Impianto",
+      "matricola": null,
+      "stato": "Articolo-stato"
+    }
+  },
+  {
+    "entity": "Assistenza",
+    "path": "assistenze",
+    "body": {
+      "articoloId": "$Articolo",
+      "tipoAssistenzaId": "$TipoAssistenza",
+      "dataInizio": "2026-10-25",
+      "dataFine": "2027-10-25",
+      "note": null
+    }
+  },
+  {
+    "entity": "Intervento",
+    "path": "interventi",
+    "body": {
+      "impiantoId": "$Impianto",
+      "tipoInterventoId": "$TipoIntervento",
+      "assistenzaId": "$Assistenza",
+      "data": "2026-10-25T10:00:00Z",
+      "note": null,
+      "esito": null
+    }
+  },
+  {
+    "entity": "UserIntervento",
+    "path": "user-interventi",
+    "body": {
+      "interventoId": "$Intervento",
+      "userId": "$User"
+    }
+  },
+  {
+    "entity": "Bolla",
+    "path": "bolle",
+    "body": {
+      "fornitoreId": "$Fornitore",
+      "numeroBolla": "Bolla-numeroBolla",
+      "dataBolla": "2026-10-25",
+      "dataArrivo": null,
+      "direzione": "ARRIVO"
+    }
+  },
+  {
+    "entity": "BollaTipoArticolo",
+    "path": "bolle-tipi-articolo",
+    "body": {
+      "bollaId": "$Bolla",
+      "tipoArticoloId": "$TipoArticolo",
+      "quantita": 3
+    }
+  }
+]

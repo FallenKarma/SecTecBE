@@ -62,6 +62,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/verify-email", "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clienti/*/impianti").authenticated()
                         .requestMatchers(
                                 "/api/v1/users", "/api/v1/users/*",
                                 "/api/v1/roles", "/api/v1/roles/*",

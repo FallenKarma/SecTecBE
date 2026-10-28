@@ -14,10 +14,25 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @Transactional
 public class ImpiantoService extends CrudService<Impianto, Request, Response> {
     private final EntityReferences references;
+    private final ImpiantoRepository impianti;
+    private final it.sectec.platform.customer.repository.ClienteRepository clienti;
 
-    public ImpiantoService(ImpiantoRepository repository, EntityReferences references) {
+    public ImpiantoService(ImpiantoRepository repository, EntityReferences references,
+            it.sectec.platform.customer.repository.ClienteRepository clienti) {
         super(repository);
         this.references = references;
+        this.impianti = repository;
+        this.clienti = clienti;
+    }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('PERM_CLIENTE_READ') and hasAuthority('PERM_IMPIANTO_READ')")
+    public java.util.List<Response> findByCliente(UUID clienteId) {
+        log.debug("Client installations lookup requested");
+        if (!clienti.existsById(clienteId)) throw new CrudException(404, "NOT_FOUND");
+        var result = impianti.findAllByClienteId(clienteId).stream().map(this::response).toList();
+        log.debug("Client installations lookup completed: count={}", result.size());
+        return result;
     }
 
     @Override

@@ -1,10 +1,11 @@
 package it.sectec.platform.security;
 
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 
 public class AccountPrincipal extends User {
     private final Profile profile;
@@ -13,8 +14,8 @@ public class AccountPrincipal extends User {
     public AccountPrincipal(Profile profile, String password, String status, long credentialsVersion) {
         super(profile.email(), password, "ACTIVE".equals(status), true, true,
                 !"LOCKED".equals(status),
-                Stream.concat(profile.roles().stream().map(role -> "ROLE_" + role),
-                        profile.permissions().stream().map(permission -> "PERM_" + permission))
+                Stream.concat(profile.roles().stream().map(role -> "ROLE_" + role.toUpperCase()),
+                        profile.permissions().stream().map(permission -> "PERM_" + permission.toUpperCase()))
                         .map(SimpleGrantedAuthority::new).toList());
         this.profile = profile;
         this.credentialsVersion = credentialsVersion;

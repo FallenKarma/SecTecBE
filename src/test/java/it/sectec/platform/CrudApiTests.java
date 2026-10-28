@@ -40,16 +40,162 @@ class CrudApiTests {
     private MockHttpServletRequestBuilder authorized(MockHttpServletRequestBuilder request) {
         var permissions = jdbc.queryForList("select name from permission", String.class).stream()
                 .map(name -> new SimpleGrantedAuthority("PERM_" + name)).toList();
-        return request.with(user("crud-test").authorities(permissions)).with(csrf());
+        var adminAuthorities = new ArrayList<>(permissions);
+        adminAuthorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        return request.with(user("crud-test").authorities(adminAuthorities)).with(csrf());
     }
 
     record Fixture(String entity, String path, Map<String, Object> body) {}
+
+    @Test
+    void changingUserRolesRequiresAdminAndWritePermission() throws Exception {
+        String path = "/api/v1/user-roles";
+        String body = json.writeValueAsString(Map.of("userId", UUID.randomUUID(),
+                "roleId", UUID.randomUUID(), "assignedAt", "2026-10-28T12:00:00Z"));
+        for (String authority : List.of("PERM_USER_ROLE_WRITE", "ROLE_ADMIN")) {
+            for (var request : List.of(post(path).contentType(MediaType.APPLICATION_JSON).content(body),
+                    put(path + "/" + UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON).content(body),
+                    delete(path + "/" + UUID.randomUUID()))) {
+                mvc.perform(request.with(user("restricted").authorities(new SimpleGrantedAuthority(authority))).with(csrf()))
+                        .andExpect(status().isForbidden());
+            }
+        }
+        // With both authorities the request reaches validation/persistence.
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body).with(csrf())
+                .with(user("admin").authorities(new SimpleGrantedAuthority("ROLE_ADMIN"),
+                        new SimpleGrantedAuthority("PERM_USER_ROLE_WRITE"))))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REFERENCE"));
+    }
+
+    @Test
+    void clientInstallationsReturnAllLinkedInstallationsIncludingSharedOnes() throws Exception {
+        UUID first = cliente("Mario", "Rossi", null);
+        UUID other = cliente("Anna", "Verdi", null);
+        UUID empty = cliente("Luca", "Bianchi", null);
+        UUID tipo = UUID.randomUUID();
+        jdbc.update("insert into tipo_impianto(id,nome) values (?, 'Test')", tipo);
+        var expected = new java.util.ArrayList<String>();
+        // More than the default page size: this endpoint must return the complete list.
+        for (int n = 0; n < 25; n++) {
+            UUID id = UUID.randomUUID();
+            jdbc.update("""
+                    insert into impianto(id,id_tipo_impianto,indirizzo,cap,nome,comune)
+                    values (?,?,'Via Test','00100',?,'Roma')
+                    """, id, tipo, "Impianto " + n);
+            jdbc.update("insert into cliente_impianto(id,id_cliente,id_impianto) values (?,?,?)",
+                    UUID.randomUUID(), n < 24 ? first : other, id);
+            if (n < 24) expected.add(id.toString());
+            if (n == 0) jdbc.update("insert into cliente_impianto(id,id_cliente,id_impianto) values (?,?,?)",
+                    UUID.randomUUID(), other, id);
+        }
+        expected.sort(String::compareTo);
+        var response = mvc.perform(authorized(get("/api/v1/clienti/" + first + "/impianti")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(24))
+                .andExpect(jsonPath("$[0].tipoImpiantoId").value(tipo.toString()))
+                .andExpect(jsonPath("$[0].comune").value("Roma"))
+                .andExpect(jsonPath("$[0].cliente").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        java.util.List<String> ids = JsonPath.read(response, "$[*].id");
+        assertThat(ids).containsExactlyElementsOf(expected);
+        mvc.perform(authorized(get("/api/v1/clienti/" + other + "/impianti")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(authorized(get("/api/v1/clienti/" + empty + "/impianti")))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test
+    void clientInstallationsRequireBothReadPermissionsAndValidateClientId() throws Exception {
+        UUID id = cliente("Mario", "Rossi", null);
+        String path = "/api/v1/clienti/" + id + "/impianti";
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        for (String permission : List.of("PERM_CLIENTE_READ", "PERM_IMPIANTO_READ", "PERM_CLIENTE_WRITE")) {
+            mvc.perform(get(path).with(user("reader").authorities(new SimpleGrantedAuthority(permission))))
+                    .andExpect(status().isForbidden());
+        }
+        mvc.perform(get(path).with(user("reader").authorities(
+                new SimpleGrantedAuthority("PERM_CLIENTE_READ"), new SimpleGrantedAuthority("PERM_IMPIANTO_READ"))))
+                .andExpect(status().isOk());
+        mvc.perform(authorized(get("/api/v1/clienti/" + UUID.randomUUID() + "/impianti")))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        mvc.perform(authorized(get("/api/v1/clienti/invalid/impianti")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
 
     private UUID cliente(String nome, String cognome, String codiceFiscale) {
         UUID id = UUID.randomUUID();
         jdbc.update("insert into cliente(id,nome,cognome,codice_fiscale) values (?,?,?,?)",
                 id, nome, cognome, codiceFiscale);
         return id;
+    }
+
+    private UUID searchUser(String nome, String cognome) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                insert into app_user(id,email,hashed_password,status,nome,cognome)
+                values (?,?,'unused-test-hash','ACTIVE',?,?)
+                """, id, id + "@example.com", nome, cognome);
+        return id;
+    }
+
+    @Test
+    void usersCanBeSearchedByCombinedPartialNames() throws Exception {
+        UUID mario = searchUser("Mario", "Rossi");
+        searchUser("Maria", "Verdi");
+        searchUser("Luca", "Rossi");
+        mvc.perform(authorized(get("/api/v1/users/search").param("nome", " ARI ")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(authorized(get("/api/v1/users/search").param("cognome", " OSS ")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(authorized(get("/api/v1/users/search").param("nome", " MAR ").param("cognome", " ROS ")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(mario.toString()))
+                .andExpect(jsonPath("$.content[0].hashedPassword").doesNotExist());
+        mvc.perform(authorized(get("/api/v1/users/search").param("nome", "luca").param("cognome", "verdi")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
+    }
+
+    @Test
+    void userSearchHandlesLiteralWildcardsBlankFiltersAndPagination() throws Exception {
+        UUID literal = searchUser("Special%_!", "Test%_!");
+        searchUser("SpecialABC", "TestABC");
+        searchUser("Other", "Test");
+        for (String field : List.of("nome", "cognome")) {
+            mvc.perform(authorized(get("/api/v1/users/search").param(field, "%_!")))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                    .andExpect(jsonPath("$.content[0].id").value(literal.toString()));
+        }
+        var unfiltered = mvc.perform(authorized(get("/api/v1/users").param("size", "2").param("page", "1")))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        mvc.perform(authorized(get("/api/v1/users/search").param("nome", " ").param("cognome", "")
+                .param("size", "2").param("page", "1")))
+                .andExpect(status().isOk()).andExpect(content().json(unfiltered));
+        mvc.perform(authorized(get("/api/v1/users/search").param("nome", "Special").param("size", "1")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2)).andExpect(jsonPath("$.totalPages").value(2));
+        mvc.perform(authorized(get("/api/v1/users/search").param("page", "99")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.totalElements").value(3));
+    }
+
+    @Test
+    void userSearchRequiresReadPermissionAndValidFiltersAndPagination() throws Exception {
+        mvc.perform(get("/api/v1/users/search")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/users/search").with(user("writer")
+                .authorities(new SimpleGrantedAuthority("PERM_USER_WRITE"))))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/users/search").with(user("reader")
+                .authorities(new SimpleGrantedAuthority("PERM_USER_READ"))))
+                .andExpect(status().isOk());
+        for (String field : List.of("nome", "cognome")) {
+            mvc.perform(authorized(get("/api/v1/users/search").param(field, "x".repeat(101))))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        }
+        for (String size : List.of("0", "101")) {
+            mvc.perform(authorized(get("/api/v1/users/search").param("size", size)))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
+        }
+        mvc.perform(authorized(get("/api/v1/users/search").param("page", "-1")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_PAGINATION"));
     }
 
     @Test

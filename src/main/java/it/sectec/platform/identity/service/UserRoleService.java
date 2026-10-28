@@ -1,15 +1,18 @@
 package it.sectec.platform.identity.service;
 
-import it.sectec.platform.identity.entity.UserRole;
-import it.sectec.platform.identity.entity.User;
+import it.sectec.platform.identity.dto.UserRoleDto.Request;
+import it.sectec.platform.identity.dto.UserRoleDto.Response;
 import it.sectec.platform.identity.entity.Role;
-import it.sectec.platform.identity.dto.UserRoleDto.*;
+import it.sectec.platform.identity.entity.User;
+import it.sectec.platform.identity.entity.UserRole;
 import it.sectec.platform.identity.repository.UserRoleRepository;
-import it.sectec.platform.shared.crud.*;
-import java.util.UUID;
+import it.sectec.platform.shared.crud.CrudService;
+import it.sectec.platform.shared.crud.EntityReferences;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.access.prepost.PreAuthorize;
+
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -32,15 +35,15 @@ public class UserRoleService extends CrudService<UserRole, Request, Response> {
     public Response get(UUID id) { return super.get(id); }
 
     @Override
-    @PreAuthorize("hasAuthority('PERM_USER_ROLE_WRITE')")
+    @PreAuthorize("hasRole('ADMIN')")
     public Response create(Request request) { return super.create(request); }
 
     @Override
-    @PreAuthorize("hasAuthority('PERM_USER_ROLE_WRITE')")
+    @PreAuthorize("hasRole('ADMIN')")
     public Response update(UUID id, Request request) { return super.update(id, request); }
 
     @Override
-    @PreAuthorize("hasAuthority('PERM_USER_ROLE_WRITE')")
+    @PreAuthorize("hasRole('ADMIN') and hasAuthority('PERM_USER_ROLE_WRITE')")
     public void delete(UUID id) { super.delete(id); }
 
     @Override

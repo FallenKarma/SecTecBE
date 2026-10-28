@@ -61,6 +61,10 @@ e il ruolo all'utente tramite user_role. L'accesso iniziale deve essere predispo
 da un amministratore nel database; non esiste un endpoint pubblico di bootstrap.
 Una volta configurati i permessi di gestione, le associazioni sono gestibili tramite API.
 
+Le modifiche delle assegnazioni `/api/v1/user-roles` (POST, PUT, DELETE)
+richiedono sia il ruolo `ADMIN` sia il permesso `USER_ROLE_WRITE`.
+Il solo permesso di scrittura o il solo ruolo amministrativo non sono sufficienti.
+
 I permessi USER_WRITE, ROLE_WRITE, PERMISSION_WRITE, USER_ROLE_WRITE e
 ROLE_PERMISSION_WRITE sono privilegi amministrativi: consentono di modificare account
 o autorizzazioni e devono essere assegnati soltanto ad amministratori fidati.

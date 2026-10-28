@@ -8,6 +8,8 @@ vedere [Log applicativi](docs/logging.md).
 
 La [ricerca filtrata dei clienti](docs/client-search.md) permette di combinare
 nome, cognome e codice fiscale con paginazione.
+L'API [impianti del cliente](docs/client-installations.md) restituisce tutti
+gli impianti associati a uno specifico cliente.
 
 ## Prerequisiti
 

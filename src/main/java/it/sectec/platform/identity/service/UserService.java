@@ -6,6 +6,10 @@ import it.sectec.platform.identity.dto.UserDto.*;
 import it.sectec.platform.identity.repository.UserRepository;
 import it.sectec.platform.shared.crud.*;
 import java.util.UUID;
+import java.util.Locale;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,6 +32,36 @@ public class UserService extends CrudService<User, Request, Response> {
     @Transactional(readOnly = true)
     @PreAuthorize("hasAuthority('PERM_USER_READ')")
     public PageResponse<Response> list(int page, int size) { return super.list(page, size); }
+
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasAuthority('PERM_USER_READ')")
+    public PageResponse<Response> search(String nome, String cognome, int page, int size) {
+        if (page < 0 || size < 1 || size > 100) throw new CrudException(400, "INVALID_PAGINATION");
+        String normalizedNome = normalizeFilter(nome);
+        String normalizedCognome = normalizeFilter(cognome);
+        log.debug("User search: nomeFilter={} cognomeFilter={} page={} size={}",
+                normalizedNome != null, normalizedCognome != null, page, size);
+        Specification<User> filters = (root, query, cb) -> cb.conjunction();
+        if (normalizedNome != null) filters = filters.and(contains("nome", normalizedNome));
+        if (normalizedCognome != null) filters = filters.and(contains("cognome", normalizedCognome));
+        var result = users.findAll(filters, PageRequest.of(page, size, Sort.by("id")));
+        log.debug("User search completed: totalElements={}", result.getTotalElements());
+        return new PageResponse<>(result.getContent().stream().map(this::response).toList(),
+                page, size, result.getTotalElements(), result.getTotalPages());
+    }
+
+    private static String normalizeFilter(String value) {
+        if (value == null || value.isBlank()) return null;
+        String normalized = value.trim();
+        if (normalized.length() > 100) throw new CrudException(400, "INVALID_REQUEST");
+        return normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private static Specification<User> contains(String field, String value) {
+        // Treat SQL LIKE wildcards as literal input, including the escape character itself.
+        String pattern = "%" + value.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        return (root, query, cb) -> cb.like(cb.lower(root.<String>get(field)), pattern, '!');
+    }
 
     @Override
     @Transactional(readOnly = true)

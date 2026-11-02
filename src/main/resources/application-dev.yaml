@@ -16,6 +16,8 @@ server:
         secure: false
 
 app:
+  geocoding:
+    google-api-key: ${GOOGLE_GEOCODING_API_KEY:}
   account:
     frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
     mail-from: ${MAIL_FROM:noreply@sectec.invalid}

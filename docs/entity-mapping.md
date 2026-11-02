@@ -47,8 +47,11 @@ e visibilità sono applicati i valori già elencati nel diagramma.
 I vincoli quantitativi, le coppie univoche e le FK sono applicati anche da PostgreSQL.
 
 L'unicità (tipo articolo, matricola) resta una proposta nel diagramma e non viene imposta.
-La coerenza fra impianto dell'intervento e impianto dell'articolo coperto dall'assistenza
-deve essere verificata nel futuro servizio applicativo; non è garantita dalle sole FK.
+ASSISTENZA è collegata direttamente a IMPIANTO con una ManyToOne obbligatoria,
+LAZY, tramite `id_impianto`; non dipende più da ARTICOLO. V9 migra i dati esistenti
+ricavando l'impianto dall'articolo precedentemente associato e mantiene gli UUID.
+La coerenza fra impianto dell'intervento e impianto dell'assistenza è verificata
+dal servizio in creazione e modifica dell'intervento; non è garantita dalle sole FK.
 Le [API CRUD](crud-api.md) espongono DTO dedicati e associazioni per ID, con permessi
 di lettura e scrittura per risorsa. Non sono introdotte ulteriori regole commerciali.
 

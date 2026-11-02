@@ -132,9 +132,18 @@ status accetta ACTIVE, DISABLED e LOCKED. Queste API sono amministrative, non re
 Le cancellazioni non si propagano alle relazioni: occorre gestire esplicitamente i record
 dipendenti. Gli errori non riportano SQL, hash o contenuti delle credenziali.
 I controlli di coerenza dell'assistenza sono applicati quando si crea o aggiorna un intervento;
-spostamenti successivi degli articoli e regole sullo storico richiedono un flusso applicativo dedicato.
+spostamenti successivi delle assistenze fra impianti e regole sullo storico richiedono un flusso applicativo dedicato.
 Le API file-assets gestiscono soltanto metadati; non effettuano upload o cancellazioni di file fisici.
 Non sono introdotte regole automatiche di giacenza, pagamenti o fatturazione.
+
+## Assistenze a livello di impianto
+
+POST/PUT `/api/v1/assistenze` e le relative risposte usano `impiantoId` (UUID
+obbligatorio) al posto di `articoloId`. Restano `tipoAssistenzaId`, `dataInizio`,
+`dataFine` e `note`. Un impianto può avere più assistenze, anche senza articoli.
+La fine deve essere successiva all'inizio. Gli interventi possono riferire una
+assistenza solo se il suo `impiantoId` coincide con quello dell'intervento.
+I client che usavano `articoloId` devono aggiornare payload, etichette e filtri.
 
 ## Verifica
 

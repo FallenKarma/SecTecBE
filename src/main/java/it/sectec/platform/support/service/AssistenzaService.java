@@ -1,7 +1,7 @@
 package it.sectec.platform.support.service;
 
 import it.sectec.platform.support.entity.Assistenza;
-import it.sectec.platform.inventory.entity.Articolo;
+import it.sectec.platform.installation.entity.Impianto;
 import it.sectec.platform.support.entity.TipoAssistenza;
 import it.sectec.platform.support.dto.AssistenzaDto.*;
 import it.sectec.platform.support.repository.AssistenzaRepository;
@@ -46,7 +46,7 @@ public class AssistenzaService extends CrudService<Assistenza, Request, Response
     @Override
     protected Assistenza createEntity(Request request) {
         if (!request.dataFine().isAfter(request.dataInizio())) throw new CrudException(400, "INVALID_DATE_RANGE");
-        return new Assistenza(references.find(Articolo.class, request.articoloId()),
+        return new Assistenza(references.find(Impianto.class, request.impiantoId()),
                 references.find(TipoAssistenza.class, request.tipoAssistenzaId()),
                 request.dataInizio(),
                 request.dataFine(),
@@ -56,7 +56,7 @@ public class AssistenzaService extends CrudService<Assistenza, Request, Response
     @Override
     protected void updateEntity(Assistenza entity, Request request) {
         if (!request.dataFine().isAfter(request.dataInizio())) throw new CrudException(400, "INVALID_DATE_RANGE");
-        entity.setArticolo(references.find(Articolo.class, request.articoloId()));
+        entity.setImpianto(references.find(Impianto.class, request.impiantoId()));
         entity.setTipoAssistenza(references.find(TipoAssistenza.class, request.tipoAssistenzaId()));
         entity.setDataInizio(request.dataInizio());
         entity.setDataFine(request.dataFine());
@@ -65,7 +65,7 @@ public class AssistenzaService extends CrudService<Assistenza, Request, Response
 
     @Override
     protected Response response(Assistenza entity) {
-        return new Response(entity.getId(), entity.getArticolo() == null ? null : entity.getArticolo().getId(),
+        return new Response(entity.getId(), entity.getImpianto() == null ? null : entity.getImpianto().getId(),
                 entity.getTipoAssistenza() == null ? null : entity.getTipoAssistenza().getId(),
                 entity.getDataInizio(),
                 entity.getDataFine(),

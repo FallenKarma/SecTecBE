@@ -63,6 +63,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clienti/*/impianti").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/impianti/*/coordinate/ricalcola").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/impianti/*/clienti").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/impianti/*/clienti").authenticated()
                         .requestMatchers(
                                 "/api/v1/users", "/api/v1/users/*",
                                 "/api/v1/roles", "/api/v1/roles/*",

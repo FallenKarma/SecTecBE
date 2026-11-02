@@ -35,3 +35,11 @@ I ruoli esistenti e le eventuali assegnazioni personalizzate sono conservati.
 Nessun ruolo viene assegnato automaticamente agli utenti, nemmeno alla registrazione.
 Le migrazioni vengono applicate da Flyway al successivo avvio del backend.
 Gli utenti gia autenticati devono ripetere il login per caricare permessi modificati.
+
+V9 sposta ASSISTENZA da ARTICOLO a IMPIANTO: aggiunge `id_impianto`, lo valorizza
+con l'impianto dell'articolo coperto, applica NOT NULL, FK RESTRICT e indice,
+quindi rimuove `id_articolo`. Gli ID delle assistenze e i riferimenti degli
+interventi rimangono invariati; più assistenze sullo stesso impianto sono ammesse.
+Se un articolo coperto non ha impianto, la migrazione si interrompe senza
+cancellare dati: associare tali articoli all'impianto corretto e riprovare.
+Non si modificano le migrazioni già applicate e non si reimposta il database.

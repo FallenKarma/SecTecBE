@@ -176,3 +176,63 @@ per un ruolo usare `@PreAuthorize("hasRole('ADMIN')")`.
 Le nuove API devono essere abilitate esplicitamente nella policy HTTP e protette secondo
 i permessi richiesti: le rotte non dichiarate sono negate. La visibilità dei pulsanti React
 non sostituisce questi controlli sul backend.
+
+## Geolocalizzazione impianti
+
+Impostare `GOOGLE_GEOCODING_API_KEY` nell'ambiente del backend (Geocoding API
+abilitata nel progetto Google Cloud con fatturazione attiva). La chiave non deve
+essere inserita nelle variabili VITE o nel repository; limitarla alla Geocoding
+API e agli IP del server nel progetto Google Cloud.
+
+La creazione e le modifiche a indirizzo, CAP o comune invocano Google Geocoding
+v3. Timeout della richiesta: 5 secondi; nessuna chiamata con chiave assente.
+Si salvano soltanto latitudine e longitudine, arrotondate a sei decimali.
+Risposte ambigue, parziali, non valide, quote esaurite e problemi di rete lasciano
+entrambi i campi null, senza impedire il salvataggio. Cambiare indirizzo elimina
+quindi le coordinate vecchie se non è possibile risolvere quello nuovo.
+Modificare altri campi conserva le coordinate nel DB, ignorando quelle del PUT.
+
+- `POST /api/v1/impianti/{id}/coordinate/ricalcola`: richiede `IMPIANTO_WRITE`
+  e CSRF; restituisce l'impianto aggiornato. In caso di mancata geocodifica
+  restituisce 200 con coordinate null, anche se prima erano presenti.
+- `GET /api/v1/impianti/mappa`: richiede `IMPIANTO_READ`, restituisce tutti gli
+  impianti, senza paginazione, con id, nome, coordinate e nomi dei clienti.
+  I nomi richiedono anche `CLIENTE_READ` e `CLIENTE_IMPIANTO_READ`: altrimenti
+  `clienti` è null; una lista vuota indica nessun cliente associato.
+
+Gli impianti esistenti si geocodificano dal dettaglio; non viene eseguito un
+aggiornamento massivo automatico. I test simulano Google e non richiedono chiavi.
+La verifica reale richiede una chiave configurata nell'ambiente di esecuzione.
+
+Riferimenti: [richiesta Google Geocoding](https://developers.google.com/maps/documentation/geocoding/guides-v3/requests-geocoding),
+[condizioni per clienti SEE](https://developers.google.com/maps/comms/eea/geocoding).
+L'integrazione Leaflet è pensata per le condizioni SEE che consentono l'uso di
+latitudine/longitudine con altre mappe; verificare le condizioni applicabili
+all'account di fatturazione, inclusi i limiti di conservazione dei risultati.
+Non vengono usati indirizzi formattati o altri contenuti restituiti da Google.
+
+### Clienti selezionati alla creazione
+
+`POST /api/v1/impianti` accetta il campo facoltativo `clientiIds` (lista UUID).
+Se non vuoto richiede anche `CLIENTE_READ` e `CLIENTE_IMPIANTO_WRITE`.
+Impianto e associazioni sono salvati nella stessa transazione; riferimenti non
+validi non creano alcun impianto. Gli identificativi ripetuti sono deduplicati.
+Il PUT non gestisce associazioni e rifiuta `clientiIds` non vuoto: per modificare
+associazioni esistenti restano disponibili le API `clienti-impianti`.
+
+### Eliminazione e associazioni di impianti esistenti
+
+`DELETE /api/v1/clienti/{id}` (`CLIENTE_WRITE`) e `DELETE /api/v1/impianti/{id}`
+(`IMPIANTO_WRITE`) rimuovono anche i collegamenti nella tabella cliente_impianto,
+senza eliminare l'altra entità o l'account utente. Le altre dipendenze restano
+protette dai vincoli del database: risposta 409 e rollback completo, compresi
+i collegamenti cliente-impianto, se esistono ordini, articoli, interventi ecc.
+
+`GET /api/v1/impianti/{id}/clienti` restituisce tutti i clienti associati con
+id, nome, cognome, codice fiscale e indirizzo. Richiede `IMPIANTO_READ`,
+`CLIENTE_READ` e `CLIENTE_IMPIANTO_READ`.
+`PUT /api/v1/impianti/{id}/clienti` accetta `{ "clientiIds": [...] }` e richiede
+anche `CLIENTE_IMPIANTO_WRITE` e CSRF. Sostituisce atomicamente l'insieme delle
+associazioni, deduplicando gli ID e conservando i collegamenti già presenti.
+Una lista vuota scollega tutti i clienti; riferimenti invalidi non modificano
+le associazioni esistenti. Non modifica i dati dell'impianto o dei clienti.

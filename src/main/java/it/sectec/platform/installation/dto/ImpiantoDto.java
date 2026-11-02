@@ -8,6 +8,9 @@ import java.math.BigDecimal;
 
 public final class ImpiantoDto {
     private ImpiantoDto() {}
+    public record AssociatedClient(UUID id, String nome, String cognome, String codiceFiscale, String indirizzo) {}
+    public record ClientsRequest(@NotNull java.util.List<@NotNull UUID> clientiIds) {}
+    public record MapPoint(UUID id, String nome, BigDecimal latitudine, BigDecimal longitudine, java.util.List<String> clienti) {}
     public record Request(
             @NotNull UUID tipoImpiantoId,
             @NotBlank @Size(max = 255) String indirizzo,
@@ -18,7 +21,8 @@ public final class ImpiantoDto {
             String codiceSim,
             @Digits(integer = 3, fraction = 6) BigDecimal longitudine,
             @Digits(integer = 3, fraction = 6) BigDecimal latitudine,
-            @NotBlank @Size(max = 255) String comune) {}
+            @NotBlank @Size(max = 255) String comune,
+            java.util.List<@NotNull UUID> clientiIds) {}
     public record Response(UUID id,
             UUID tipoImpiantoId,
             String indirizzo,

@@ -1,6 +1,6 @@
 package it.sectec.platform.support.entity;
 
-import it.sectec.platform.inventory.entity.Articolo;
+import it.sectec.platform.installation.entity.Impianto;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
@@ -16,8 +16,8 @@ public class Assistenza {
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_articolo", nullable = false)
-    private Articolo articolo;
+    @JoinColumn(name = "id_impianto", nullable = false)
+    private Impianto impianto;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -38,8 +38,8 @@ public class Assistenza {
     protected Assistenza() {
     }
 
-    public Assistenza(Articolo articolo, TipoAssistenza tipoAssistenza, LocalDate dataInizio, LocalDate dataFine, String note) {
-        this.articolo = articolo;
+    public Assistenza(Impianto impianto, TipoAssistenza tipoAssistenza, LocalDate dataInizio, LocalDate dataFine, String note) {
+        this.impianto = impianto;
         this.tipoAssistenza = tipoAssistenza;
         this.dataInizio = dataInizio;
         this.dataFine = dataFine;
@@ -50,12 +50,12 @@ public class Assistenza {
         return id;
     }
 
-    public Articolo getArticolo() {
-        return articolo;
+    public Impianto getImpianto() {
+        return impianto;
     }
 
-    public void setArticolo(Articolo articolo) {
-        this.articolo = articolo;
+    public void setImpianto(Impianto impianto) {
+        this.impianto = impianto;
     }
 
     public TipoAssistenza getTipoAssistenza() {

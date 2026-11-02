@@ -19,11 +19,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 public class ClienteService extends CrudService<Cliente, Request, Response> {
     private final EntityReferences references;
     private final ClienteRepository clienti;
+    private final it.sectec.platform.installation.repository.ClienteImpiantoRepository associations;
 
-    public ClienteService(ClienteRepository repository, EntityReferences references) {
+    public ClienteService(ClienteRepository repository, EntityReferences references,
+            it.sectec.platform.installation.repository.ClienteImpiantoRepository associations) {
         super(repository);
         this.references = references;
         this.clienti = repository;
+        this.associations = associations;
     }
 
     @Override
@@ -79,7 +82,12 @@ public class ClienteService extends CrudService<Cliente, Request, Response> {
 
     @Override
     @PreAuthorize("hasAuthority('PERM_CLIENTE_WRITE')")
-    public void delete(UUID id) { super.delete(id); }
+    public void delete(UUID id) {
+        if (!clienti.existsById(id)) throw new CrudException(404, "NOT_FOUND");
+        associations.deleteAllByClienteId(id);
+        associations.flush();
+        super.delete(id);
+    }
 
     @Override
     protected Cliente createEntity(Request request) {

@@ -48,6 +48,51 @@ class CrudApiTests {
     record Fixture(String entity, String path, Map<String, Object> body) {}
 
     @Test
+    void assistanceCoversInstallationWithoutArticlesAndInterventionsMustMatch() throws Exception {
+        UUID type = UUID.randomUUID(), plant = UUID.randomUUID(), other = UUID.randomUUID();
+        UUID supportType = UUID.randomUUID(), interventionType = UUID.randomUUID();
+        jdbc.update("insert into tipo_impianto(id,nome) values (?, 'Allarme')", type);
+        for (UUID id : List.of(plant, other)) jdbc.update("""
+                insert into impianto(id,id_tipo_impianto,indirizzo,cap,nome,comune)
+                values (?,?,'Via Roma','00100','Casa','Roma')
+                """, id, type);
+        jdbc.update("insert into tipo_assistenza(id,nome) values (?, 'Annuale')", supportType);
+        jdbc.update("insert into tipo_intervento(id,nome) values (?, 'Controllo')", interventionType);
+        var supportBody = new HashMap<String, Object>(Map.of("impiantoId", plant,
+                "tipoAssistenzaId", supportType, "dataInizio", "2026-01-01", "dataFine", "2027-01-01"));
+        String result = mvc.perform(authorized(post("/api/v1/assistenze")).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(supportBody))).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.impiantoId").value(plant.toString()))
+                .andExpect(jsonPath("$.articoloId").doesNotExist()).andReturn().getResponse().getContentAsString();
+        String support = JsonPath.read(result, "$.id");
+        supportBody.put("impiantoId", other);
+        mvc.perform(authorized(put("/api/v1/assistenze/" + support)).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(supportBody))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.impiantoId").value(other.toString()));
+        var interventionBody = new HashMap<String, Object>(Map.of("impiantoId", plant,
+                "tipoInterventoId", interventionType, "assistenzaId", support, "data", "2026-10-29T10:00:00Z"));
+        mvc.perform(authorized(post("/api/v1/interventi")).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(interventionBody))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INCONSISTENT_ASSISTANCE"));
+        interventionBody.put("impiantoId", other);
+        result = mvc.perform(authorized(post("/api/v1/interventi")).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(interventionBody))).andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String intervention = JsonPath.read(result, "$.id");
+        interventionBody.put("impiantoId", plant);
+        mvc.perform(authorized(put("/api/v1/interventi/" + intervention)).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(interventionBody))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INCONSISTENT_ASSISTANCE"));
+        supportBody.remove("impiantoId");
+        mvc.perform(authorized(post("/api/v1/assistenze")).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(supportBody))).andExpect(status().isBadRequest());
+        supportBody.put("impiantoId", UUID.randomUUID());
+        mvc.perform(authorized(post("/api/v1/assistenze")).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(supportBody))).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REFERENCE"));
+    }
+
+    @Test
     void changingUserRolesRequiresAdminAndWritePermission() throws Exception {
         String path = "/api/v1/user-roles";
         String body = json.writeValueAsString(Map.of("userId", UUID.randomUUID(),

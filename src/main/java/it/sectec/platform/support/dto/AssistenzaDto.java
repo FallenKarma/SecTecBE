@@ -9,13 +9,13 @@ import java.math.BigDecimal;
 public final class AssistenzaDto {
     private AssistenzaDto() {}
     public record Request(
-            @NotNull UUID articoloId,
+            @NotNull UUID impiantoId,
             @NotNull UUID tipoAssistenzaId,
             @NotNull LocalDate dataInizio,
             @NotNull LocalDate dataFine,
             String note) {}
     public record Response(UUID id,
-            UUID articoloId,
+            UUID impiantoId,
             UUID tipoAssistenzaId,
             LocalDate dataInizio,
             LocalDate dataFine,

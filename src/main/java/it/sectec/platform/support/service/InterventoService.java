@@ -47,8 +47,8 @@ public class InterventoService extends CrudService<Intervento, Request, Response
     @Override
     protected Intervento createEntity(Request request) {
         var assistance = references.find(Assistenza.class, request.assistenzaId());
-        if (assistance != null && (assistance.getArticolo().getImpianto() == null ||
-                !assistance.getArticolo().getImpianto().getId().equals(request.impiantoId()))) {
+        if (assistance != null && (assistance.getImpianto() == null ||
+                !assistance.getImpianto().getId().equals(request.impiantoId()))) {
             throw new CrudException(400, "INCONSISTENT_ASSISTANCE");
         }
         return new Intervento(references.find(Impianto.class, request.impiantoId()),
@@ -62,8 +62,8 @@ public class InterventoService extends CrudService<Intervento, Request, Response
     @Override
     protected void updateEntity(Intervento entity, Request request) {
         var assistance = references.find(Assistenza.class, request.assistenzaId());
-        if (assistance != null && (assistance.getArticolo().getImpianto() == null ||
-                !assistance.getArticolo().getImpianto().getId().equals(request.impiantoId()))) {
+        if (assistance != null && (assistance.getImpianto() == null ||
+                !assistance.getImpianto().getId().equals(request.impiantoId()))) {
             throw new CrudException(400, "INCONSISTENT_ASSISTANCE");
         }
         entity.setImpianto(references.find(Impianto.class, request.impiantoId()));

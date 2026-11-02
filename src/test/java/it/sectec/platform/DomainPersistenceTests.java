@@ -104,7 +104,7 @@ class DomainPersistenceTests {
         var articolo = save(new Articolo(tipoArticolo, impianto, "SERIAL-1", "INSTALLATO"));
         var stock = save(new Articolo(tipoArticolo, null, null, "MAGAZZINO"));
         var tipoAssistenza = save(new TipoAssistenza("Annuale"));
-        var assistenza = save(new Assistenza(articolo, tipoAssistenza, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1), null));
+        var assistenza = save(new Assistenza(impianto, tipoAssistenza, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1), null));
         var tipoIntervento = save(new TipoIntervento("Manutenzione"));
         var intervento = save(new Intervento(impianto, tipoIntervento, assistenza, Instant.parse("2026-10-25T10:00:00Z"), null, null));
         var fuoriCopertura = save(new Intervento(impianto, tipoIntervento, null, Instant.now(), null, null));
@@ -127,7 +127,7 @@ class DomainPersistenceTests {
         assertThat(em.find(Impianto.class, impianto.getId()).getLongitudine()).isEqualByComparingTo("12.123456");
         assertThat(em.find(UserIntervento.class, assegnazione.getId()).getIntervento().getTipoIntervento().getNome()).isEqualTo("Manutenzione");
         assertThat(em.find(Intervento.class, intervento.getId()).getAssistenza().getTipoAssistenza().getNome()).isEqualTo("Annuale");
-        assertThat(em.find(Assistenza.class, assistenza.getId()).getArticolo().getImpianto().getId()).isEqualTo(impianto.getId());
+        assertThat(em.find(Assistenza.class, assistenza.getId()).getImpianto().getId()).isEqualTo(impianto.getId());
         assertThat(em.find(Articolo.class, stock.getId()).getImpianto()).isNull();
         assertThat(em.find(Intervento.class, fuoriCopertura.getId()).getAssistenza()).isNull();
         assertThat(em.find(DocumentoArticolo.class, documento.getId()).getFileAsset().getSha256()).isEqualTo("a".repeat(64));
